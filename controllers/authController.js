@@ -46,9 +46,9 @@ exports.register = async (req, res) => {
             password: password,
             firstName: firstName,
             lastName: lastName,
-            avatar: avatarUrl || null
+            avatar: avatarUrl,
+            avatarPublicId: avatarPublicId
         });
-    await newUser.save();
 
   // 4. Générer JWT
 
@@ -57,16 +57,18 @@ exports.register = async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRE || '7d' }
     );
+
   // 5. Réponse { user, token }
+  const userResponse = newUser.toJSON();
     res.status(201).json({
         message: 'utilisateur créé avec succès',
         user: {
-            id: newUser._id,
-            email: newUser.email,
-            username: newUser.username,
-            firstName: newUser.firstName,
-            lastName: newUser.lastName,
-            avatar: newUser.avatar
+            id: userResponse._id,
+            email: userResponse.email,
+            username: userResponse.username,
+            firstName: userResponse.firstName,
+            lastName: userResponse.lastName,
+            Avatar: userResponse.defaultAvatar,
         },
         token: token
     });

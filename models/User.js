@@ -27,10 +27,20 @@ const userSchema = new mongoose.Schema({
   firstName: {type: String,required: [true, 'Prénom requis']},
   lastName: {type: String,required: [true, 'Nom requis']},
   avatar: {type: String, default: null},
-  role: { type: String, enum: ['user', 'admin'], default: 'user' },
+  avatarPublicId: {type: String, default: null},
+  role: { type: String, enum: ['user', 'admin'], default: 'user' }
   },  {
-  timestamps: true
+  timestamps: true,
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
   }) 
+
+// ===== DEFAULT AVATAR =====
+
+userSchema.virtual('defaultAvatar').get(function() {
+    if(this.avatar) return this.avatar;
+    return `https://ui-avatars.com/api/?name=${this.firstName}+${this.lastName}&size=200background=4f46ca&color=fff&rounded=true`;
+});
 
 // ===== PRE-SAVE MIDDLEWARE =====
 userSchema.pre('save', async function() {
