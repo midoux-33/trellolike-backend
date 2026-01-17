@@ -13,6 +13,7 @@ exports.register = async (req, res) => {
    const requiredFields = ['email', 'username', 'password'];
     if(!checkBody(req.body, requiredFields).isValid) {
       return res.status(400).json({
+        success: false,
         message: checkBody(req.body, requiredFields).message
       });
     }
@@ -23,6 +24,7 @@ exports.register = async (req, res) => {
     const existingUser = await User.findOne({$or: [{ email }, { username }] });
     if (existingUser) {
         return res.status(409).json({
+            success: false,
             message: "Utilisateur déjà existant"
         });
     }
@@ -61,6 +63,7 @@ exports.register = async (req, res) => {
   // 5. Réponse { user, token }
   const userResponse = newUser.toJSON();
     res.status(201).json({
+        success: true,
         message: 'utilisateur créé avec succès',
         user: {
             id: userResponse._id,
@@ -73,7 +76,7 @@ exports.register = async (req, res) => {
         token: token
     });
     } catch (error) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ success: false, error: error.message });
     }
 };
 
@@ -86,6 +89,7 @@ exports.login = async (req, res) => {
         const requiredFields = ['email', 'password'];
     if(!checkBody(req.body, requiredFields).isValid) {
       return res.status(400).json({
+        success: false,
         message: checkBody(req.body, requiredFields).message
       });
     }
@@ -93,13 +97,13 @@ exports.login = async (req, res) => {
   // 2. User.findOne({ email })
     const user = await User.findOne({ email });
     if (!user) {
-        return res.status(401).json({ message: 'Email ou mot de passe incorrect' });
+        return res.status(401).json({ success: false, message: 'Email ou mot de passe incorrect' });
     }
 
   // 3. Vérifier password
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
-        return res.status(401).json({ message: 'Email ou mot de passe incorrect' });
+        return res.status(401).json({ success: false, message: 'Email ou mot de passe incorrect' });
     }
 
   // 4. JWT
@@ -113,6 +117,7 @@ exports.login = async (req, res) => {
 
     const userResponse = user.toJSON();
     res.status(200).json({
+        success: true,
         message: 'Connexion réussie',
         user: {
             id: userResponse._id,
@@ -125,6 +130,6 @@ exports.login = async (req, res) => {
         token: token
     });
     } catch (error) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ success: false, error: error.message });
     }
 };
