@@ -78,9 +78,53 @@ exports.register = async (req, res) => {
 };
 
 exports.login = async (req, res) => {
-  // 1. Email + password
+    
+    // 1. Email + password
+    try {
+        const { email, password } = req.body;
+
+        const requiredFields = ['email', 'password'];
+    if(!checkBody(req.body, requiredFields).isValid) {
+      return res.status(400).json({
+        message: checkBody(req.body, requiredFields).message
+      });
+    }
+
   // 2. User.findOne({ email })
-  // 3. bcrypt.compare
+    const user = await User.findOne({ email });
+    if (!user) {
+        return res.status(401).json({ message: 'Email ou mot de passe incorrect' });
+    }
+
+  // 3. Vérifier password
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) {
+        return res.status(401).json({ message: 'Email ou mot de passe incorrect' });
+    }
+
   // 4. JWT
+    const token = jwt.sign(
+      { id: user._id },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRE || '7d' }
+    );
+
   // 5. Réponse
+
+    const userResponse = user.toJSON();
+    res.status(200).json({
+        message: 'Connexion réussie',
+        user: {
+            id: userResponse._id,
+            email: userResponse.email,
+            username: userResponse.username,
+            firstName: userResponse.firstName,
+            lastName: userResponse.lastName,
+            Avatar: userResponse.defaultAvatar,
+        },
+        token: token
+    });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
 };

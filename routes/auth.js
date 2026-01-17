@@ -18,6 +18,10 @@ router.post('/register',[
 ], authController.register);
 
 /* POST login user */
+router.post('/login',[
+    body('email').isEmail().normalizeEmail().trim(),
+    body('password').notEmpty(),
+], authController.login);
 
 /* GET user profile */
 router.get('/profiles', function(req, res) {
