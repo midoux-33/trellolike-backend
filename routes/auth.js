@@ -5,10 +5,17 @@ const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const { authenticateToken } = require('../middleware/authMiddleWare');
 const authController = require('../controllers/authController');
+const { body } = require('express-validator');
 
 
 /* POST register new user */
-router.post('/register', authController.register);
+router.post('/register',[
+    body('email').isEmail().normalizeEmail(),
+    body('username').isLength({ min: 3, max: 20 }).trim().escape(),
+    body('password').isLength({ min: 6 }),
+    body('firstName').notEmpty().trim().escape(),
+    body('lastName').notEmpty().trim().escape(),
+], authController.register);
 
 /* POST login user */
 
