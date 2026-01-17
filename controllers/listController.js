@@ -2,20 +2,79 @@
 const TaskList = require('../models/TaskList');
 const jwt = require('jsonwebtoken');
 const { checkBody } = require('../utils/checkBody');
+const User = require('../models/User');
 
 exports.createList = async (req, res) => {
+
     try {
-        // 1 récupérer les données du corps de la requête      
+
+        // 1 récupérer les données du corps de la requête 
+        const { title, description, color, collaborators } = req.body;   
+        const owner = req.user.userId;
+        const collaboratorsId = [];
+
+        console.log('collaborators reçus :', collaborators);
         // 2 valider title existe et non vide
+
+        const requiredFields = ['title'];
+
+        if (!checkBody(req.body, requiredFields).isValid) {
+            return res.status(400).json({
+                success: false,
+                message: checkBody(req.body, requiredFields).message
+            });
+        }
+
+        // vérifier si les collaborators existent dans user collection
+        if (collaborators && collaborators.length > 0) {
+            for (let collab of collaborators) {
+                console.log('Vérification collaborateur :', collab.username, collab.role);
+                const userExists = await User.findOne({ username: collab.username });
+                if (!userExists) {
+                    return res.status(404).json({
+                        success: false,
+                        message: `Collaborateur ${collab.user} non trouvé`
+                    });
+                }
+                collaboratorsId.push({user: userExists._id, role: collab.role});
+            }
+        }
+
+        // vérifier unicité du title
+        const existingList = await TaskList.findOne({ title });
+        if (existingList) {
+            return res.status(409).json({
+                success: false,
+                message: "Une liste avec ce titre existe déjà"
+            });
+        }
+
+
         // 3 créer nouvelle Tasklist :
-        // -title, description, color
-        // owner
-        //collaborators
-        //isArchived=false
-        // 4 sauvegarder en DB
+
+        const newList = await TaskList.create({
+            title: title,
+            description: description || '',
+            color: color || '#FFFFFF',
+            owner: owner,
+            collaborators: collaboratorsId || [],
+            isArchived: false
+        });
+
         // populate owner et collaborators.user
+        const populatedList = await newList
+            .populate([
+                { path: 'owner', select: 'username  firstName lastName avatar -_id' },
+                { path: 'collaborators.user', select: 'userName email firstName lastName avatar -_id' }
+            ])
+
         // 5 réponse
 
+        res.status(201).json({
+            success: true,
+            message: 'Liste créée avec succès',
+            list: populatedList
+        });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }

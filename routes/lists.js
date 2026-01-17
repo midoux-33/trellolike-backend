@@ -1,11 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const { authenticateToken } = require('../middleware/authMiddleWare');
+const authenticateToken = require('../middleware/authMiddleWare');
 const listController = require('../controllers/listController');
 
 /* GET /api/lists - Get all lists for the authenticated user */
 
 /* Post /api/lists - Create a new list */
+router.post('/', authenticateToken, listController.createList);
 
 /* GET /api/lists/:id - Get a specific list by ID */
 
