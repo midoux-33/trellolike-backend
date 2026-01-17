@@ -82,13 +82,43 @@ exports.createList = async (req, res) => {
 
 exports.getListById = async (req, res) => {
     try {
-     // 1. Récupérer listId depuis req.params.listId
+    // 1. Récupérer listId depuis req.params.listId
+    const listId = req.params.listId;
+    const userId = req.user.userId;
+    console.log('Récupération liste pour userId :', userId);
     // 2. Trouver la liste dans DB
+    const list = await TaskList.findById(listId);
+    if (!list) {
+        return res.status(404).json({
+            success: false,
+            message: 'Liste non trouvée'
+        });
+    }
+    console.log('Liste trouvée :', list.owner.toString(), list.collaborators);
+
     // 3. IMPORTANT : Vérifier que req.user est :
+
     //    - soit owner de la liste
     //    - soit dans collaborators
     //    -< Si non -> 403 Forbidden
+    if (userId !== list.owner.toString() && !list.collaborators.some(collab => collab.user.toString() === userId)) {
+        return res.status(403).json({
+            success: false,
+            message: 'Accès refusé'
+        });
+    }
+    
     // 4. Populate owner + collaborators.user
+
+    const populatedList = await list
+        .populate([
+            { path: 'owner', select: 'username firstName lastName avatar -_id' },
+            { path: 'collaborators.user', select: 'username email firstName lastName avatar -_id' }
+        ]);
+    res.status(200).json({
+        success: true,
+        list: populatedList
+    });
     // 5. reponse avec la liste trouvée
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
