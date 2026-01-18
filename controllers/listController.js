@@ -128,12 +128,46 @@ exports.getListById = async (req, res) => {
 exports.updateList = async (req, res) => {
     try {
     // 1. Récupérer listId depuis req.params.listId
+
+    const listId = req.params.listId;
+    const userId = req.user.userId;
     // 2. Trouver la liste dans DB
+    const list = await TaskList.findById(listId);
+    if (!list) {
+        return res.status(404).json({
+            success: false,
+            message: 'Liste non trouvée'
+        });
+    }
     // 3. permission check : owner ou collaborator avec role 'editor'
+    if (userId !== list.owner.toString() && !list.collaborators.some(collab => collab.user.toString() === userId && collab.role === 'editor')) {
+        return res.status(403).json({
+            success: false,
+            message: 'Accès refusé'
+        });
+    }
     // 4. Mettre à jour les champs modifiables : title, description, color
+    const { title, description, color } = req.body;
+    if (title) list.title = title;
+    if (description) list.description = description;
+    if (color) list.color = color;
+
     // 5. Sauvegarder en DB
+    await list.save();
+
     // 6. populate
+    const populatedList = await list
+        .populate([
+            { path: 'owner', select: 'username firstName lastName avatar -_id' },
+            { path: 'collaborators.user', select: 'username email firstName lastName avatar -_id' }
+        ]);
+
     // 7. Réponse avec la liste mise à jour
+    res.status(200).json({
+        success: true,
+        message: 'Liste mise à jour avec succès',
+        list: populatedList
+    });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
