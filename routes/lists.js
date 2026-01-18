@@ -6,9 +6,16 @@ const validateRequest = require('../middleware/validateRequest');
 const { body, param } = require('express-validator');
 
 /* GET /api/lists - Get all lists for the authenticated user */
+router.get('/', authenticateToken, listController.getAllLists);
 
 /* Post /api/lists - Create a new list */
-router.post('/', authenticateToken, listController.createList);
+router.post('/',[ 
+    authenticateToken,
+    body('title').notEmpty().isLength({ max: 100 }),
+    body('description').optional().isLength({ max: 500 }),
+    body('color').optional().isHexColor().withMessage('Couleur invalide'),
+    validateRequest
+], listController.createList);
 
 /* GET /api/lists/:id - Get a specific list by ID */
 router.get('/:listId', [
@@ -30,5 +37,10 @@ router.put('/:listId', [
 ], listController.updateList);
 
 /* DELETE /api/lists/:id - Delete a specific list by ID */
+router.delete('/:listId', [
+    authenticateToken,
+    param('listId').isMongoId().withMessage('list ID invalide'),
+    validateRequest
+], listController.deleteList);
 
 module.exports = router;

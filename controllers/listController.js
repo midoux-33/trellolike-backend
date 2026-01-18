@@ -3,6 +3,34 @@ const TaskList = require('../models/TaskList');
 const jwt = require('jsonwebtoken');
 const { checkBody } = require('../utils/checkBody');
 const User = require('../models/User');
+const Task = require('../models/Task');
+
+exports.getAllLists = async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        console.log('Récupération des listes pour userId :', userId);
+
+        // Trouver toutes les listes où l'utilisateur est owner ou collaborator
+        const lists = await TaskList.find({
+            $or: [
+                { owner: userId },
+                { 'collaborators.user': userId }
+            ]
+        })
+        .populate([
+            { path: 'owner', select: 'username firstName lastName avatar -_id' },
+            { path: 'collaborators.user', select: 'username firstName lastName avatar -_id' }
+        ]);
+
+        res.status(200).json({
+            success: true,
+            message: 'Listes récupérées avec succès',
+            lists: lists
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+};
 
 exports.createList = async (req, res) => {
 
@@ -176,10 +204,39 @@ exports.updateList = async (req, res) => {
 exports.deleteList = async (req, res) => {
     try {
     // 1. Récupérer listId depuis req.params.listId
+    const listId = req.params.listId;
+    const userId = req.user.userId;
+
     // 2. Trouver la liste dans DB
+    const list = await TaskList.findById(listId);
+    if (!list) {
+        return res.status(404).json({
+            success: false,
+            message: 'Liste non trouvée'
+        });
+    }
+
     // 3. permission check : owner uniquement
+    if (userId !== list.owner.toString()) {
+        return res.status(403).json({
+            success: false,
+            message: 'Accès refusé'
+        });
+    }
+
     // 4. Supprimer la liste avec task associées
+    await TaskList.findByIdAndDelete(listId);
+
+    //  supprimer les tâches associées
+    const deletedTasks = await Task.deleteMany({ list: listId });
+    console.log(`Tâches supprimées associées à la liste ${listId} :`, deletedTasks.deletedCount);
+
     // 5. Réponse de succès
+
+    res.status(200).json({
+        success: true,
+        message: deletedTasks.deletedCount ? `Liste et ${deletedTasks.deletedCount} tâches associées supprimées avec succès` : 'Liste supprimée avec succès'
+    });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
