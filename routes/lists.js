@@ -43,4 +43,30 @@ router.delete('/:listId', [
     validateRequest
 ], listController.deleteList);
 
+/* post /api/lists/:listId/collaborators - Add a collaborator to a list */
+router.post('/:listId/collaborators', [
+    authenticateToken,
+    param('listId').isMongoId().withMessage('list ID invalide'),
+    body('username').isString().withMessage('Nom d\'utilisateur invalide'),
+    body('role').notEmpty().isIn(['viewer', 'editor']).withMessage('Rôle invalide'),
+    validateRequest
+], listController.addCollaborator);
+
+/* put /api/lists/:listId/collaborators/:collaboratorId - Update a collaborator's role */
+router.put('/:listId/collaborators/:collaboratorId', [
+    authenticateToken,
+    param('listId').isMongoId().withMessage('list ID invalide'),
+    param('collaboratorId').isMongoId().withMessage('collaborator ID invalide'),
+    body('role').notEmpty().isIn(['viewer', 'editor']).withMessage('Rôle invalide'),
+    validateRequest
+], listController.updateCollaboratorRole);
+
+/* DELETE /api/lists/:listId/collaborators/:collaboratorId - Remove a collaborator from a list */
+router.delete('/:listId/collaborators/:collaboratorId', [
+    authenticateToken,
+    param('listId').isMongoId().withMessage('list ID invalide'),
+    param('collaboratorId').isMongoId().withMessage('collaborator ID invalide'),
+    validateRequest
+], listController.removeCollaborator);
+
 module.exports = router;

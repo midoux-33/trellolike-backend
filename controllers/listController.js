@@ -8,7 +8,6 @@ const Task = require('../models/Task');
 exports.getAllLists = async (req, res) => {
     try {
         const userId = req.user.userId;
-        console.log('Récupération des listes pour userId :', userId);
 
         // Trouver toutes les listes où l'utilisateur est owner ou collaborator
         const lists = await TaskList.find({
@@ -41,7 +40,6 @@ exports.createList = async (req, res) => {
         const owner = req.user.userId;
         const collaboratorsId = [];
 
-        console.log('collaborators reçus :', collaborators);
         // 2 valider title existe et non vide
 
         const requiredFields = ['title'];
@@ -56,7 +54,6 @@ exports.createList = async (req, res) => {
         // vérifier si les collaborators existent dans user collection
         if (collaborators && collaborators.length > 0) {
             for (let collab of collaborators) {
-                console.log('Vérification collaborateur :', collab.username, collab.role);
                 const userExists = await User.findOne({ username: collab.username });
                 if (!userExists) {
                     return res.status(404).json({
@@ -113,7 +110,6 @@ exports.getListById = async (req, res) => {
     // 1. Récupérer listId depuis req.params.listId
     const listId = req.params.listId;
     const userId = req.user.userId;
-    console.log('Récupération liste pour userId :', userId);
     // 2. Trouver la liste dans DB
     const list = await TaskList.findById(listId);
     if (!list) {
@@ -122,7 +118,6 @@ exports.getListById = async (req, res) => {
             message: 'Liste non trouvée'
         });
     }
-    console.log('Liste trouvée :', list.owner.toString(), list.collaborators);
 
     // 3. IMPORTANT : Vérifier que req.user est :
 
@@ -229,7 +224,6 @@ exports.deleteList = async (req, res) => {
 
     //  supprimer les tâches associées
     const deletedTasks = await Task.deleteMany({ list: listId });
-    console.log(`Tâches supprimées associées à la liste ${listId} :`, deletedTasks.deletedCount);
 
     // 5. Réponse de succès
 
@@ -242,3 +236,201 @@ exports.deleteList = async (req, res) => {
     }
 };
 
+exports.addCollaborator = async (req, res) => {
+    try {
+        // 1. Récupérer listId depuis req.params.listId
+        const listId = req.params.listId;
+        const userId = req.user.userId;
+
+        // verifier que userId est owner de la liste
+        const list = await TaskList.findById(listId);
+        if (!list) {
+            return res.status(404).json({
+                success: false,
+                message: 'Liste non trouvée'
+            });
+        }
+        if (userId !== list.owner.toString()) {
+            return res.status(403).json({
+                success: false,
+                message: 'Accès refusé'
+            });
+        }
+
+        // 2. Récupérer collaborator info depuis req.body
+        const { collaboratorsId, role } = req.body;
+
+        const requiredFields = ['collaboratorsId', 'role'];
+
+        if (!checkBody(req.body, requiredFields).isValid) {
+            return res.status(400).json({
+                success: false,
+                message: checkBody(req.body, requiredFields).message
+            });
+        }
+
+        // 3. Vérifier que le collaborator existe
+        const collaboratorUser = await User.findById(collaboratorsId);
+        if (!collaboratorUser) {
+            return res.status(404).json({
+                success: false,
+                message: 'Utilisateur collaborateur non trouvé'
+            });
+        }
+
+        if (userId.toString() === collaboratorUser._id.toString()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Le propriétaire ne peut pas être ajouté comme collaborateur'
+            });
+        }
+        // vérifier que le collaborator n'est pas déjà dans la liste
+        if (list.collaborators.some(collab => collab.user.toString() === collaboratorsId.toString())) {
+            return res.status(409).json({
+                success: false,
+                message: 'Collaborateur déjà ajouté à la liste'
+            });
+        }
+
+        // 4. Ajouter le collaborator à la liste
+        list.collaborators.push({ user: collaboratorsId, role: role });
+        await list.save();
+
+        const populatedList = await list
+            .populate([
+                { path: 'owner', select: 'username firstName lastName email' },
+                { path: 'collaborators.user', select: 'username firstName lastName email' }
+            ]);
+
+        // 5. Réponse de succès
+        res.status(200).json({
+            success: true,
+            message: 'Collaborateur ajouté avec succès',
+            list: populatedList
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+};
+
+exports.updateCollaboratorRole = async (req, res) => {
+    try {
+        // 1. Récupérer listId depuis req.params.listId
+        const listId = req.params.listId;
+        const collaboratorsId = req.params.collaboratorId;
+        const userId = req.user.userId;
+
+        const { role } = req.body;
+
+        const requiredFields = ['role'];
+
+        if (!checkBody(req.body, requiredFields).isValid) {
+            return res.status(400).json({
+                success: false,
+                message: checkBody(req.body, requiredFields).message
+            });
+        }
+
+        // verifier que userId est owner de la liste
+        const list = await TaskList.findById(listId);
+        if (!list) {
+            return res.status(404).json({
+                success: false,
+                message: 'Liste non trouvée'
+            });
+        }
+
+        if (userId !== list.owner.toString()) {
+            return res.status(403).json({
+                success: false,
+                message: 'Accès refusé'
+            });
+        }
+        // 2. Trouver le collaborator dans la liste
+        const collaborator = list.collaborators.find(collab => collab.user.toString() === collaboratorsId);
+        if (!collaborator) {
+            return res.status(404).json({
+                success: false,
+                message: 'Collaborateur non trouvé dans la liste'
+            });
+        }
+        
+        // verifier que le rôle est différent avant mise à jour
+        if (collaborator.role === role) {
+            return res.status(400).json({
+                success: false,
+                message: 'Le rôle du collaborateur est déjà défini sur ce rôle'
+            });
+        }
+
+        // 3. Mettre à jour le rôle
+        collaborator.role = role;
+        await list.save();
+
+        await list
+            .populate([
+                { path: 'owner', select: 'username firstName lastName email' },
+                { path: 'collaborators.user', select: 'username firstName lastName email' }
+            ])
+
+        // 4. Réponse de succès
+        res.status(200).json({
+            success: true,
+            message: 'Rôle du collaborateur mis à jour avec succès',
+            list: list
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+};
+
+exports.removeCollaborator = async (req, res) => {
+    try {
+        // 1. Récupérer listId depuis req.params.listId
+        const listId = req.params.listId;
+        const collaboratorsId = req.params.collaboratorId;
+        const userId = req.user.userId;
+
+        // verifier que userId est owner de la liste
+        const list = await TaskList.findById(listId);
+        if (!list) {
+            return res.status(404).json({
+                success: false,
+                message: 'Liste non trouvée'
+            });
+        }
+
+        if (userId !== list.owner.toString()) {
+            return res.status(403).json({
+                success: false,
+                message: 'Accès refusé'
+            });
+        }
+
+        // 2. Retirer le collaborator de la liste
+        const initialLength = list.collaborators.length;
+        list.collaborators = list.collaborators.filter(collab => collab.user.toString() !== collaboratorsId);
+        if (list.collaborators.length === initialLength) {
+            return res.status(404).json({
+                success: false,
+                message: 'Collaborateur non trouvé dans la liste'
+            });
+        }
+        await list.save();
+
+        await list
+            .populate([
+                { path: 'owner', select: 'username firstName lastName email' },
+                { path: 'collaborators.user', select: 'username firstName lastName email' }
+            ])
+
+        // 3. Réponse de succès
+        res.status(200).json({
+            success: true,
+            message: 'Collaborateur retiré avec succès',
+            list: list
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+};
