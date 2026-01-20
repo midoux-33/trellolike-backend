@@ -21,8 +21,6 @@ router.post('/',[
 router.get('/:listId', [
     authenticateToken,
     param('listId').isMongoId().withMessage('list ID invalide'),
-    body('title').notEmpty().isLength({ max: 100 }),
-    body('description').optional().isLength({ max: 500 }),
     validateRequest
 ], listController.getListById);
 
@@ -47,7 +45,7 @@ router.delete('/:listId', [
 router.post('/:listId/collaborators', [
     authenticateToken,
     param('listId').isMongoId().withMessage('list ID invalide'),
-    body('username').isString().withMessage('Nom d\'utilisateur invalide'),
+    body('collaboratorsId').notEmpty().isString().withMessage('Nom d\'utilisateur invalide ou manquant'),
     body('role').notEmpty().isIn(['viewer', 'editor']).withMessage('Rôle invalide'),
     validateRequest
 ], listController.addCollaborator);

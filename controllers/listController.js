@@ -1,7 +1,6 @@
 // controller/listController.js
 const TaskList = require('../models/TaskList');
 const jwt = require('jsonwebtoken');
-const { checkBody } = require('../utils/checkBody');
 const User = require('../models/User');
 const Task = require('../models/Task');
 
@@ -38,31 +37,20 @@ exports.createList = async (req, res) => {
         // 1 récupérer les données du corps de la requête 
         const { title, description, color, collaborators } = req.body;   
         const owner = req.user.userId;
-        const collaboratorsId = [];
-
-        // 2 valider title existe et non vide
-
-        const requiredFields = ['title'];
-
-        if (!checkBody(req.body, requiredFields).isValid) {
-            return res.status(400).json({
-                success: false,
-                message: checkBody(req.body, requiredFields).message
-            });
-        }
+        let collaboratorsId = [];
 
         // vérifier si les collaborators existent dans user collection
         if (collaborators && collaborators.length > 0) {
-            for (let collab of collaborators) {
-                const userExists = await User.findOne({ username: collab.username });
-                if (!userExists) {
-                    return res.status(404).json({
-                        success: false,
-                        message: `Collaborateur ${collab.user} non trouvé`
-                    });
-                }
-                collaboratorsId.push({user: userExists._id, role: collab.role});
+           collaboratorsId = collaborators.map(collab => collab.collaboratorId);
+           const users = await User.find({ _id: { $in: collaboratorsId } });
+           const userMap = new Map(users.map(u => [u._id.toString(), u._id]));
+           collaboratorsId = collaborators.map(collab => {
+            const userId = userMap.get(collab.collaboratorId);
+            if (!userId) {
+                throw new Error(`Utilisateur collaborateur '${collab.collaboratorId}' non trouvé`);
             }
+            return {user: userId, role: collab.role};
+            })
         }
 
         // vérifier unicité du title
@@ -89,8 +77,8 @@ exports.createList = async (req, res) => {
         // populate owner et collaborators.user
         const populatedList = await newList
             .populate([
-                { path: 'owner', select: 'username  firstName lastName avatar -_id' },
-                { path: 'collaborators.user', select: 'userName email firstName lastName avatar -_id' }
+                { path: 'owner', select: 'username firstName lastName avatar -_id' },
+                { path: 'collaborators.user', select: 'username email firstName lastName avatar -_id' }
             ])
 
         // 5 réponse
@@ -137,7 +125,7 @@ exports.getListById = async (req, res) => {
         .populate([
             { path: 'owner', select: 'username firstName lastName avatar -_id' },
             { path: 'collaborators.user', select: 'username email firstName lastName avatar -_id' }
-        ]);
+        ])
     res.status(200).json({
         success: true,
         list: populatedList
@@ -241,9 +229,13 @@ exports.addCollaborator = async (req, res) => {
         // 1. Récupérer listId depuis req.params.listId
         const listId = req.params.listId;
         const userId = req.user.userId;
+        const { collaboratorsId, role } = req.body;
 
+        const [list, collaboratorUser] = await Promise.all([
+            TaskList.findById(listId),
+            User.findById(collaboratorsId)
+        ]);
         // verifier que userId est owner de la liste
-        const list = await TaskList.findById(listId);
         if (!list) {
             return res.status(404).json({
                 success: false,
@@ -258,19 +250,9 @@ exports.addCollaborator = async (req, res) => {
         }
 
         // 2. Récupérer collaborator info depuis req.body
-        const { collaboratorsId, role } = req.body;
 
-        const requiredFields = ['collaboratorsId', 'role'];
-
-        if (!checkBody(req.body, requiredFields).isValid) {
-            return res.status(400).json({
-                success: false,
-                message: checkBody(req.body, requiredFields).message
-            });
-        }
 
         // 3. Vérifier que le collaborator existe
-        const collaboratorUser = await User.findById(collaboratorsId);
         if (!collaboratorUser) {
             return res.status(404).json({
                 success: false,
@@ -322,14 +304,6 @@ exports.updateCollaboratorRole = async (req, res) => {
 
         const { role } = req.body;
 
-        const requiredFields = ['role'];
-
-        if (!checkBody(req.body, requiredFields).isValid) {
-            return res.status(400).json({
-                success: false,
-                message: checkBody(req.body, requiredFields).message
-            });
-        }
 
         // verifier que userId est owner de la liste
         const list = await TaskList.findById(listId);
@@ -367,7 +341,7 @@ exports.updateCollaboratorRole = async (req, res) => {
         collaborator.role = role;
         await list.save();
 
-        await list
+        const populatedList = await list
             .populate([
                 { path: 'owner', select: 'username firstName lastName email' },
                 { path: 'collaborators.user', select: 'username firstName lastName email' }
@@ -377,7 +351,7 @@ exports.updateCollaboratorRole = async (req, res) => {
         res.status(200).json({
             success: true,
             message: 'Rôle du collaborateur mis à jour avec succès',
-            list: list
+            list: populatedList
         });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -418,7 +392,7 @@ exports.removeCollaborator = async (req, res) => {
         }
         await list.save();
 
-        await list
+        const populatedList = await list
             .populate([
                 { path: 'owner', select: 'username firstName lastName email' },
                 { path: 'collaborators.user', select: 'username firstName lastName email' }
@@ -428,7 +402,7 @@ exports.removeCollaborator = async (req, res) => {
         res.status(200).json({
             success: true,
             message: 'Collaborateur retiré avec succès',
-            list: list
+            list: populatedList
         });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
