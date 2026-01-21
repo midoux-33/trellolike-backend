@@ -3,6 +3,7 @@ const router = express.Router();
 const authenticateToken = require('../middleware/authMiddleWare');
 const listController = require('../controllers/listController');
 const validateRequest = require('../middleware/validateRequest');
+const validateUpdate = require('../middleware/validateUpdate');
 const { body, param } = require('express-validator');
 
 /* GET /api/lists - Get all lists for the authenticated user */
@@ -31,7 +32,7 @@ router.put('/:listId', [
     body('title').optional().notEmpty().isLength({ max: 100 }),
     body('description').optional().isLength({ max: 500 }),
     body('color').optional().isHexColor().withMessage('Couleur invalide'),
-    validateRequest
+    validateRequest, validateUpdate
 ], listController.updateList);
 
 /* DELETE /api/lists/:id - Delete a specific list by ID */
@@ -56,7 +57,7 @@ router.put('/:listId/collaborators/:collaboratorId', [
     param('listId').isMongoId().withMessage('list ID invalide'),
     param('collaboratorId').isMongoId().withMessage('collaborator ID invalide'),
     body('role').notEmpty().isIn(['viewer', 'editor']).withMessage('Rôle invalide'),
-    validateRequest
+    validateRequest, validateUpdate
 ], listController.updateCollaboratorRole);
 
 /* DELETE /api/lists/:listId/collaborators/:collaboratorId - Remove a collaborator from a list */

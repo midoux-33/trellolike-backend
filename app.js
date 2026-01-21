@@ -12,6 +12,7 @@ var indexRouter = require('./routes/index');
 var usersRouter = require('./routes/users');
 const authRouter = require('./routes/auth');
 const listsRouter = require('./routes/lists');
+const tasksRouter = require('./routes/task');
 
 var app = express();
 
@@ -31,6 +32,7 @@ app.use('/', indexRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/lists', listsRouter);
+app.use('/api/tasks', tasksRouter);
 
 // 404 Handler 
 app.use((req, res) => {

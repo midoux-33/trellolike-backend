@@ -51,6 +51,12 @@ const tasklistSchema = new mongoose.Schema({
   timestamps: true
   }) 
 
+// index
+
+  tasklistSchema.index({ owner: 1 });                    // Listes par propriétaire
+  tasklistSchema.index({ 'collaborators.user': 1 });    // Collaborateurs
+  tasklistSchema.index({ isArchived: 1 });              // Listes archivées
+
 const Tasklist = mongoose.model('Tasklist', tasklistSchema);
 
 module.exports = Tasklist;

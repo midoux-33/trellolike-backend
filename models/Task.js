@@ -27,10 +27,10 @@ const taskSchema = new mongoose.Schema({
     ref: 'Tasklist',
     required: [true, 'La liste est requise']
   },
-  assignedTo: {
+  assignedTo: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-  },
+  }],
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -50,10 +50,6 @@ const taskSchema = new mongoose.Schema({
     type: Date,
     default: null
   },
-  isCompleted: {
-    type: Boolean,
-    default: false
-  },
   completedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -63,8 +59,23 @@ const taskSchema = new mongoose.Schema({
   }],
   comments: [commentSchema],
   }, {
-  timestamps: true
+  timestamps: true,
+  toJSON: { virtuals: true},
+  toObject: { virtuals: true}
   }) 
+
+// virtual is Completed
+taskSchema.virtual('isCompleted').get(function() {
+  return this.status === 'done';
+});
+
+// index
+
+taskSchema.index({ list: 1, status: 1 });      // Cherche par liste + status
+taskSchema.index({ createdBy: 1 });            // Cherche par créateur
+taskSchema.index({ dueDate: 1 });              // Tâches par date limite
+taskSchema.index({ 'assignedTo._id': 1 });    // Tâches assignées à user
+
 
 const Task = mongoose.model('Task', taskSchema);
 
