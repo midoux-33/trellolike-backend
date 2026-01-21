@@ -39,7 +39,7 @@ exports.getTasksByList = async (req, res) => {
                 { path: 'list', select: 'title description color' },
                 { path: 'createdBy', select: 'username email avatar' },
                 { path: 'assignedTo', select: 'username email avatar' }
-            ]).lean()
+            ])
 
         res.status(200).json({
             success: true,

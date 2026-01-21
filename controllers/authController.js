@@ -1,7 +1,7 @@
 // controllers/authController.js
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
-const { checkBody } = require('../utils/checkBody');
+
 const { uploadAvatar } = require('../services/uploadService');
 
 exports.register = async (req, res) => {
@@ -9,14 +9,6 @@ exports.register = async (req, res) => {
     try {
   // 1. Vérifier erreurs validation
    const { email, username, password, firstName, lastName, } = req.body;
-
-   const requiredFields = ['email', 'username', 'password'];
-    if(!checkBody(req.body, requiredFields).isValid) {
-      return res.status(400).json({
-        success: false,
-        message: checkBody(req.body, requiredFields).message
-      });
-    }
 
 
 
@@ -86,13 +78,6 @@ exports.login = async (req, res) => {
     try {
         const { email, password } = req.body;
 
-        const requiredFields = ['email', 'password'];
-    if(!checkBody(req.body, requiredFields).isValid) {
-      return res.status(400).json({
-        success: false,
-        message: checkBody(req.body, requiredFields).message
-      });
-    }
 
   // 2. User.findOne({ email })
     const user = await User.findOne({ email });
