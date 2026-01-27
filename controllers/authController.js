@@ -118,3 +118,24 @@ exports.login = async (req, res) => {
       res.status(500).json({ success: false, error: error.message });
     }
 };
+
+exports.getProfile = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    // recupère user 
+    const user = await user.findById(userId)
+    .select('-password')
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User non trouvé'});
+    }
+
+    res.status(200).json({
+      succes: true,
+      user: user
+    })
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message })
+  }
+};

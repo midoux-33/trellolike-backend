@@ -5,7 +5,7 @@ const User = require('../models/User');
 const authController = require('../controllers/authController');
 const { body } = require('express-validator');
 const validateRequest = require('../middleware/validateRequest');
-
+const authenticateToken = require('../middleware/authMiddleWare') 
 
 /* POST register new user */
 router.post('/register',[
@@ -24,7 +24,10 @@ router.post('/login',[
     validateRequest
 ], authController.login);
 
-/* GET user profile */
+/* GET user */ 
+router.get('/me', authenticateToken, authController.getProfile);
+
+/* GET users profile */
 router.get('/profiles', function(req, res) {
     User.find().then(data => {
         res.json({allUsers: data});
